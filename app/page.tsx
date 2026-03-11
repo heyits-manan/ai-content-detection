@@ -3,6 +3,7 @@
 import { useState } from "react";
 import UploadBox from "@/components/UploadBox";
 import ResultBox from "@/components/ResultBox";
+import Link from "next/link";
 
 interface DetectionResult {
   success: boolean;
@@ -74,11 +75,13 @@ export default function Home() {
       <main className="relative z-10 max-w-xl mx-auto px-4 py-20">
         {/* Header */}
         <div className="text-center mb-12">
-          <img
-            src="/logo.png"
-            alt="FutureStore AI"
-            className="h-10 mx-auto mb-6"
-          />
+          <Link href={"https://www.futurestoreai.com/"}>
+            <img
+              src="/logo.png"
+              alt="FutureStore AI"
+              className="h-10 mx-auto mb-6"
+            />
+          </Link>
           <h1 className="text-4xl font-extrabold text-white tracking-tight">
             AI Content Detector
           </h1>
@@ -94,8 +97,8 @@ export default function Home() {
           <button
             onClick={() => handleTabChange("file")}
             className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "file"
-                ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
+              ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
           >
             Media File
@@ -103,8 +106,8 @@ export default function Home() {
           <button
             onClick={() => handleTabChange("text")}
             className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "text"
-                ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
+              ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
           >
             Text Content

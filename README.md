@@ -1,16 +1,15 @@
 # 🔍 AI Content Detector
 
-A web application that detects whether media content (images, videos, or audio) is AI-generated. Built as part of the [FutureStore.ai](https://futurestoreai.com) ecosystem.
+A web application that detects whether media content (images, videos, or audio) is AI-generated. Built as part of the [futurestoreai.com](https://futurestoreai.com) ecosystem.
 
-> **Live URL:** [verify.futurestore.ai](https://verify.futurestore.ai)
 
 ## Features
 
-- **Upload media files** — Drag-and-drop or browse to upload
-- **AI detection** — Analyzes content using machine learning models
-- **Confidence scoring** — Returns probability scores for artificial vs human content
-- **Multiple formats** — Supports images (JPG, PNG, WebP), video (MP4), and audio (MP3, WAV)
-- **10MB file limit** — Lightweight and fast processing
+- **Upload media files** — Drag-and-drop or browse to upload images, or paste text
+- **AI detection** — Analyzes content using machine learning models concurrently
+- **Combined scoring** — Leverages Hive AI and HuggingFace models (SDXL, RoBERTa)
+- **Multiple formats** — Supports text content, and images (JPG, PNG, WebP)
+- **4MB file limit** — Lightweight and optimized for Vercel serverless functions
 
 ## Tech Stack
 
@@ -19,7 +18,7 @@ A web application that detects whether media content (images, videos, or audio) 
 | Framework | Next.js 16 (App Router) |
 | Frontend | React, Tailwind CSS v4 |
 | Backend | Next.js API Routes |
-| AI Detection | HuggingFace Inference API |
+| AI Detection | Hive API, HuggingFace Inference API (SDXL, RoBERTa) |
 | Deployment | Vercel |
 
 ## Getting Started
@@ -42,7 +41,8 @@ npm install
 Create a `.env.local` file in the root directory:
 
 ```env
-HUGGINGFACE_API_KEY=your_api_key_here
+HUGGINGFACE_API_KEY=your_hf_api_key_here
+HIVE_API_KEY=your_hive_api_key_here
 ```
 
 ### Run Locally
@@ -59,15 +59,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ai-content-detector/
 ├── app/
 │   ├── api/detect/
-│   │   └── route.ts          # POST /api/detect endpoint
+│   │   ├── route.ts          # POST /api/detect (Image detection)
+│   │   └── text/
+│   │       └── route.ts      # POST /api/detect/text (Text detection)
 │   ├── globals.css            # Global styles & Tailwind config
 │   ├── layout.tsx             # Root layout with metadata
-│   └── page.tsx               # Main upload page
+│   └── page.tsx               # Main upload & text input page
 ├── components/
 │   ├── UploadBox.tsx          # File upload with drag-and-drop
-│   └── ResultBox.tsx          # Detection result display
+│   └── ResultBox.tsx          # Advanced breakdown result display
 ├── lib/
-│   ├── detector.ts            # AI detection logic (HuggingFace)
+│   ├── detector.ts            # AI detection logic (Hive + HF Aggregator)
 │   └── fileParser.ts          # File validation & parsing
 └── public/
     ├── logo.png               # FutureStore logo
@@ -78,7 +80,7 @@ ai-content-detector/
 
 ### `POST /api/detect`
 
-Accepts `multipart/form-data` with a `file` field.
+Accepts `multipart/form-data` with a `file` field. Used for image validation.
 
 **Success Response:**
 
@@ -86,10 +88,28 @@ Accepts `multipart/form-data` with a `file` field.
 {
   "success": true,
   "ai_generated": true,
-  "confidence": 0.91,
-  "artificial_score": 0.91,
-  "human_score": 0.09,
-  "detected_model": "AI-image-detector"
+  "confidence": 0.82,
+  "detectors": {
+    "hive": 0.78,
+    "sdxl": 0.91
+  }
+}
+```
+
+### `POST /api/detect/text`
+
+Accepts a JSON payload `{"text": "Sample text to check"}`.
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "ai_generated": true,
+  "confidence": 0.96,
+  "detectors": {
+    "roberta": 0.96
+  }
 }
 ```
 
@@ -104,11 +124,11 @@ Accepts `multipart/form-data` with a `file` field.
 
 ## Roadmap
 
-- [x] Image AI detection
+- [x] Text AI Detection (RoBERTa)
+- [x] Multi-model architecture for imagery
 - [ ] Video deepfake detection
 - [ ] Audio/voice clone detection
 - [ ] Multi-file upload
-- [ ] Visual probability charts
 - [ ] Public developer API
 - [ ] Browser extension
 
