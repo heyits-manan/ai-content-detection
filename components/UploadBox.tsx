@@ -78,7 +78,7 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                                 <span className="text-purple-400">browse</span>
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
-                                Supports images, videos & audio · Max 10MB
+                                Supports images, videos & audio · Max 4MB
                             </p>
                         </div>
                     </div>

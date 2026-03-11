@@ -1,4 +1,5 @@
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+// const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB [use this later]
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (Vercel serverless limit)
 
 const ALLOWED_IMAGE_TYPES = [
     "image/jpeg",
