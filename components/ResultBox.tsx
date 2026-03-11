@@ -5,8 +5,9 @@ interface DetectionResult {
     ai_generated?: boolean;
     confidence?: number;
     detectors?: {
-        hive: number;
+        hive?: number;
         sdxl?: number;
+        roberta?: number;
     };
     message?: string;
 }
@@ -96,8 +97,9 @@ export default function ResultBox({ result, isLoading }: ResultBoxProps) {
 
     const isAI = result.ai_generated;
     const confidencePercent = Math.round((result.confidence ?? 0) * 100);
-    const hiveScore = result.detectors?.hive ?? 0;
+    const hiveScore = result.detectors?.hive;
     const sdxlScore = result.detectors?.sdxl;
+    const robertaScore = result.detectors?.roberta;
 
     return (
         <div className="w-full rounded-2xl border border-[var(--color-dark-border)] bg-[var(--color-dark-card)] p-6 space-y-5">
@@ -178,9 +180,14 @@ export default function ResultBox({ result, isLoading }: ResultBoxProps) {
                     </p>
                 </div>
                 <div className="space-y-4 pt-1">
-                    <ScoreBar label="Hive API Score" score={hiveScore} color={hiveScore > 0.7 ? "red" : "emerald"} />
+                    {hiveScore !== undefined && (
+                        <ScoreBar label="Hive API Score" score={hiveScore} color={hiveScore > 0.7 ? "red" : "emerald"} />
+                    )}
                     {sdxlScore !== undefined && (
                         <ScoreBar label="SDXL Model Score" score={sdxlScore} color={sdxlScore > 0.7 ? "red" : "emerald"} />
+                    )}
+                    {robertaScore !== undefined && (
+                        <ScoreBar label="RoBERTa Text Model Score" score={robertaScore} color={robertaScore > 0.7 ? "red" : "emerald"} />
                     )}
                 </div>
             </div>

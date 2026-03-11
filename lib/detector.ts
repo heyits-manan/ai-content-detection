@@ -4,14 +4,16 @@ const hf = new InferenceClient(process.env.HUGGINGFACE_API_KEY);
 
 const HIVE_API_KEY = process.env.HIVE_API_KEY || "";
 const SDXL_MODEL = "Organika/sdxl-detector";
+const TEXT_MODEL = "openai-community/roberta-base-openai-detector";
 
 export interface DetectionResult {
     success: boolean;
     ai_generated: boolean;
     confidence: number;
     detectors: {
-        hive: number;
+        hive?: number;
         sdxl?: number;
+        roberta?: number;
     };
 }
 
@@ -86,5 +88,28 @@ export function combineScores(hiveScore: number, sdxlScore?: number): DetectionR
         ai_generated: finalScore > 0.7,
         confidence: Math.round(finalScore * 100) / 100,
         detectors
+    };
+}
+
+export async function detectText(text: string): Promise<DetectionResult> {
+    const result = await hf.textClassification({
+        model: TEXT_MODEL,
+        inputs: text,
+        provider: "hf-inference"
+    });
+
+    const artificialScore = result.find(
+        (r) => r.label === "Fake" || r.label.toLowerCase() === "artificial"
+    )?.score ?? 0;
+
+    const confidence = Math.round(artificialScore * 100) / 100;
+
+    return {
+        success: true,
+        ai_generated: confidence > 0.7,
+        confidence: confidence,
+        detectors: {
+            roberta: confidence
+        }
     };
 }

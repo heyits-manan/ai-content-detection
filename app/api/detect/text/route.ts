@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { detectWithHive, combineScores } from "@/lib/detector";
+import { detectText } from "@/lib/detector";
 
 export async function POST(request: NextRequest) {
     try {
@@ -20,11 +20,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Convert text to buffer to simulate a file for the Hive API
-        const buffer = Buffer.from(text, "utf-8");
-        const hiveScore = await detectWithHive(buffer, "text/plain");
-
-        const result = combineScores(hiveScore);
+        const result = await detectText(text);
 
         return NextResponse.json(result);
     } catch (error) {
