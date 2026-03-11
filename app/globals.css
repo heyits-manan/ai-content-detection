@@ -2,7 +2,7 @@
 
 
 
-@theme inline {
+:root {
   --color-dark-bg: #0a0a12;
   --color-dark-card: #12121e;
   --color-dark-border: #1e1e2e;
