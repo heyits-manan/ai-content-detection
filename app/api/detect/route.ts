@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateFile, parseFile } from "@/lib/fileParser";
-import { detectImage } from "@/lib/detector";
+import { detectWithHive, detectWithSDXL, combineScores } from "@/lib/detector";
 
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
+        const type = formData.get("type") as string | null || file?.type || "";
 
         if (!file) {
             return NextResponse.json(
@@ -26,17 +27,27 @@ export async function POST(request: NextRequest) {
         // Parse file to buffer
         const parsedFile = await parseFile(file);
 
-        // Run AI image detection
-        const result = await detectImage(parsedFile.buffer, parsedFile.mimeType);
+        // Run detection based on file type
+        const isImage = type.startsWith("image/");
+        let hiveScore = 0;
+        let sdxlScore: number | undefined = undefined;
 
-        return NextResponse.json({
-            success: true,
-            ai_generated: result.ai_generated,
-            confidence: result.confidence,
-            artificial_score: result.artificial_score,
-            human_score: result.human_score,
-            detected_model: result.detected_model,
-        });
+        if (isImage) {
+            // Run detectors in parallel for images
+            const results = await Promise.all([
+                detectWithHive(parsedFile.buffer, parsedFile.mimeType),
+                detectWithSDXL(parsedFile.buffer, parsedFile.mimeType)
+            ]);
+            hiveScore = results[0];
+            sdxlScore = results[1];
+        } else {
+            // For video/audio/text that are uploaded as files
+            hiveScore = await detectWithHive(parsedFile.buffer, parsedFile.mimeType);
+        }
+
+        const result = combineScores(hiveScore, sdxlScore);
+
+        return NextResponse.json(result);
     } catch (error) {
         const message =
             error instanceof Error ? error.message : "Internal server error";
