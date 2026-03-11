@@ -45,9 +45,9 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
         <div className="w-full">
             {!selectedFile ? (
                 <label
-                    className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-300 ${dragActive
-                            ? "border-indigo-500 bg-indigo-50"
-                            : "border-zinc-300 bg-zinc-50 hover:border-indigo-400 hover:bg-indigo-50/50"
+                    className={`flex flex-col items-center justify-center w-full h-64 border border-dashed rounded-2xl cursor-pointer transition-all duration-300 ${dragActive
+                            ? "border-purple-500 bg-purple-500/10"
+                            : "border-[var(--color-dark-border)] bg-[var(--color-dark-card)] hover:border-purple-500/50 hover:bg-purple-500/5"
                         }`}
                     onDragOver={(e) => {
                         e.preventDefault();
@@ -57,9 +57,9 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                     onDrop={handleDrop}
                 >
                     <div className="flex flex-col items-center gap-3 p-6">
-                        <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
                             <svg
-                                className="w-7 h-7 text-indigo-600"
+                                className="w-7 h-7 text-purple-400"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -67,17 +67,17 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                                 <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    strokeWidth={2}
+                                    strokeWidth={1.5}
                                     d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                                 />
                             </svg>
                         </div>
                         <div className="text-center">
-                            <p className="text-sm font-semibold text-zinc-700">
+                            <p className="text-sm font-medium text-slate-300">
                                 Drop your image here, or{" "}
-                                <span className="text-indigo-600">browse</span>
+                                <span className="text-purple-400">browse</span>
                             </p>
-                            <p className="text-xs text-zinc-400 mt-1">
+                            <p className="text-xs text-slate-500 mt-1">
                                 Supports JPG, PNG, WebP · Max 10MB
                             </p>
                         </div>
@@ -91,17 +91,17 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                     />
                 </label>
             ) : (
-                <div className="relative w-full rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-50">
+                <div className="relative w-full rounded-2xl overflow-hidden border border-[var(--color-dark-border)] bg-[var(--color-dark-card)]">
                     <img
                         src={preview!}
                         alt="Preview"
-                        className="w-full h-64 object-contain bg-white"
+                        className="w-full h-64 object-contain bg-black/30"
                     />
-                    <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 border-t border-zinc-200">
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-dark-border)]">
                         <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
                                 <svg
-                                    className="w-4 h-4 text-indigo-600"
+                                    className="w-4 h-4 text-purple-400"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -109,19 +109,19 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                                     <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        strokeWidth={2}
+                                        strokeWidth={1.5}
                                         d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                                     />
                                 </svg>
                             </div>
-                            <p className="text-sm text-zinc-600 truncate">
+                            <p className="text-sm text-slate-400 truncate">
                                 {selectedFile.name}
                             </p>
                         </div>
                         <button
                             onClick={clearFile}
                             disabled={isLoading}
-                            className="text-xs text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                            className="text-xs text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50 cursor-pointer"
                         >
                             Remove
                         </button>

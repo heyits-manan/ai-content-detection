@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
             success: true,
             ai_generated: result.ai_generated,
             confidence: result.confidence,
+            artificial_score: result.artificial_score,
+            human_score: result.human_score,
             detected_model: result.detected_model,
         });
     } catch (error) {

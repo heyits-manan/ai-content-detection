@@ -1,11 +1,18 @@
 @import "tailwindcss";
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+
+
+@theme inline {
+  --color-dark-bg: #0a0a12;
+  --color-dark-card: #12121e;
+  --color-dark-border: #1e1e2e;
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+  --color-accent-glow: rgba(139, 92, 246, 0.3);
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-dark-bg);
+  color: #e2e8f0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
