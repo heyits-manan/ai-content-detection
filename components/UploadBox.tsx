@@ -11,9 +11,18 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
     const [dragActive, setDragActive] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const handleFile = useCallback(
         (file: File) => {
+            setError(null);
+
+            // Client-side size check (4MB)
+            if (file.size > 4 * 1024 * 1024) {
+                setError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Limit is 4MB.`);
+                return;
+            }
+
             setSelectedFile(file);
             setPreview(URL.createObjectURL(file));
             onFileSelect(file);
@@ -80,6 +89,11 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                             <p className="text-xs text-slate-500 mt-1">
                                 Supports images, videos & audio · Max 4MB
                             </p>
+                            {error && (
+                                <p className="text-xs font-semibold text-red-400 mt-2 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">
+                                    {error}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <input
