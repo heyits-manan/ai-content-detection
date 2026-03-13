@@ -67,8 +67,8 @@ export default function Home() {
                   filename: "Text Input",
                   is_ai_generated: data.ai_generated,
                   confidence: data.confidence,
-                  ai_probability: data.detectors.roberta,
-                  real_probability: data.detectors.roberta ? 1 - data.detectors.roberta : undefined,
+                  average_ai_probability: data.detectors.roberta,
+                  average_real_probability: data.detectors.roberta ? 1 - data.detectors.roberta : undefined,
                   per_model: [{
                       success: true,
                       model_used: "roberta",
