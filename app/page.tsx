@@ -5,21 +5,13 @@ import UploadBox from "@/components/UploadBox";
 import ResultBox from "@/components/ResultBox";
 import Link from "next/link";
 
-interface DetectionResult {
-  success: boolean;
-  ai_generated?: boolean;
-  confidence?: number;
-  artificial_score?: number;
-  human_score?: number;
-  detected_model?: string | null;
-  message?: string;
-}
+import { DetectionResponse } from "@/components/ResultBox";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"file" | "text">("file");
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
-  const [result, setResult] = useState<DetectionResult | null>(null);
+  const [result, setResult] = useState<DetectionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleTabChange = (tab: "file" | "text") => {
@@ -45,7 +37,8 @@ export default function Home() {
       if (activeTab === "file") {
         const formData = new FormData();
         formData.append("file", file!);
-        response = await fetch("/api/detect", {
+        // Forward to Next.js API route that proxies to Python backend
+        response = await fetch("/api/proxy/image/detect", {
           method: "POST",
           body: formData,
         });
@@ -56,11 +49,39 @@ export default function Home() {
           body: JSON.stringify({ text: text.trim() }),
         });
       }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status}`);
+      }
 
       const data = await response.json();
-      setResult(data);
-    } catch {
-      setResult({ success: false, message: "Failed to connect to server" });
+      
+      // Since /api/detect/text might still return the old `DetectionResult` format,
+      // we need to gracefully handle mapping it to the new `DetectionResponse` format
+      // if it hasn't been updated yet.
+      if (activeTab === "text" && data.success && data.detectors) {
+          setResult({
+              success: true,
+              data: {
+                  success: true,
+                  filename: "Text Input",
+                  is_ai_generated: data.ai_generated,
+                  confidence: data.confidence,
+                  ai_probability: data.detectors.roberta,
+                  real_probability: data.detectors.roberta ? 1 - data.detectors.roberta : undefined,
+                  per_model: [{
+                      success: true,
+                      model_used: "roberta",
+                      ai_probability: data.detectors.roberta
+                  }]
+              }
+          });
+      } else {
+          setResult(data);
+      }
+      
+    } catch (e: any) {
+      setResult({ success: false, message: e.message || "Failed to connect to server", error: e.message });
     } finally {
       setIsLoading(false);
     }

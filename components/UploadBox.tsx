@@ -17,12 +17,6 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
         (file: File) => {
             setError(null);
 
-            // Client-side size check (4MB)
-            if (file.size > 4 * 1024 * 1024) {
-                setError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Limit is 4MB.`);
-                return;
-            }
-
             setSelectedFile(file);
             setPreview(URL.createObjectURL(file));
             onFileSelect(file);
@@ -87,7 +81,7 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                                 <span className="text-purple-400">browse</span>
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
-                                Supports images, videos & audio · Max 4MB
+                                Supports images, videos & audio
                             </p>
                             {error && (
                                 <p className="text-xs font-semibold text-red-400 mt-2 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">

@@ -1,21 +1,41 @@
 "use client";
 
-interface DetectionResult {
-    success: boolean;
-    ai_generated?: boolean;
-    confidence?: number;
-    detectors?: {
-        hive?: number;
-        sdxl?: number;
-        roberta?: number;
-    };
-    message?: string;
+export interface PerModelResult {
+  success: boolean;
+  detector?: string;
+  model_used?: string;
+  ai_probability?: number;
+  real_probability?: number;
+  confidence?: number;
+  inference_time_ms?: number;
+  error?: string;
+  raw_results?: any;
+}
+
+export interface DetectionData {
+  success: boolean;
+  ai_probability?: number;
+  real_probability?: number;
+  is_ai_generated?: boolean;
+  confidence?: number;
+  models_used?: string[];
+  filename: string;
+  error?: string;
+  per_model?: PerModelResult[]; // Adjust based on true schema structure expected
+}
+
+export interface DetectionResponse {
+  success: boolean;
+  data?: DetectionData;
+  error?: string;
+  message?: string; // keeping message for fallback error handling
 }
 
 interface ResultBoxProps {
-    result: DetectionResult | null;
+    result: DetectionResponse | null;
     isLoading: boolean;
 }
+
 
 function ScoreBar({
     label,
@@ -95,11 +115,11 @@ export default function ResultBox({ result, isLoading }: ResultBoxProps) {
         );
     }
 
-    const isAI = result.ai_generated;
-    const confidencePercent = Math.round((result.confidence ?? 0) * 100);
-    const hiveScore = result.detectors?.hive;
-    const sdxlScore = result.detectors?.sdxl;
-    const robertaScore = result.detectors?.roberta;
+    const detectionData = result.data;
+    const isAI = detectionData?.is_ai_generated ?? false;
+    const confidencePercent = Math.round((detectionData?.confidence ?? 0) * 100);
+    const aiProbability = detectionData?.ai_probability;
+    const realProbability = detectionData?.real_probability;
 
     return (
         <div className="w-full rounded-2xl border border-[var(--color-dark-border)] bg-[var(--color-dark-card)] p-6 space-y-5">
@@ -180,15 +200,20 @@ export default function ResultBox({ result, isLoading }: ResultBoxProps) {
                     </p>
                 </div>
                 <div className="space-y-4 pt-1">
-                    {hiveScore !== undefined && (
-                        <ScoreBar label="Hive API Score" score={hiveScore} color={hiveScore > 0.7 ? "red" : "emerald"} />
+                    {aiProbability !== undefined && (
+                        <ScoreBar label="AI Probability" score={aiProbability} color={aiProbability > 0.5 ? "red" : "emerald"} />
                     )}
-                    {sdxlScore !== undefined && (
-                        <ScoreBar label="SDXL Model Score" score={sdxlScore} color={sdxlScore > 0.7 ? "red" : "emerald"} />
+                    {realProbability !== undefined && (
+                        <ScoreBar label="Real Probability" score={realProbability} color={realProbability > 0.5 ? "emerald" : "red"} />
                     )}
-                    {robertaScore !== undefined && (
-                        <ScoreBar label="RoBERTa Text Model Score" score={robertaScore} color={robertaScore > 0.7 ? "red" : "emerald"} />
-                    )}
+                    {detectionData?.per_model?.map((model) => {
+                        const score = model.ai_probability;
+                        if (score === undefined) return null;
+                        const label = `${model.model_used || model.detector || "Model"} Score`;
+                        return (
+                            <ScoreBar key={model.detector || model.model_used} label={label} score={score} color={score > 0.5 ? "red" : "emerald"} />
+                        );
+                    })}
                 </div>
             </div>
         </div>

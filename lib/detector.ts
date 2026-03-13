@@ -41,13 +41,16 @@ export async function detectWithHive(buffer: Buffer, mimeType: string): Promise<
         throw new Error(`Hive API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    type HiveClass = { class?: string; value?: number };
+    type HiveResponse = { output?: Array<{ classes?: HiveClass[] }> };
+
+    const data = (await response.json()) as HiveResponse;
 
     // Parse response
-    const classes = data?.output?.[0]?.classes || [];
+    const classes = data?.output?.[0]?.classes ?? [];
 
-    const aiGeneratedScore = classes.find((c: any) => c.class === "ai_generated")?.value ?? 0;
-    const deepfakeScore = classes.find((c: any) => c.class === "deepfake")?.value ?? 0;
+    const aiGeneratedScore = classes.find((c) => c.class === "ai_generated")?.value ?? 0;
+    const deepfakeScore = classes.find((c) => c.class === "deepfake")?.value ?? 0;
 
     return Math.max(aiGeneratedScore, deepfakeScore);
 }
