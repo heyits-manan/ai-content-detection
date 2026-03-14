@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateFile, parseFile } from "@/lib/fileParser";
-import { detectWithHive, detectWithSDXL, combineScores } from "@/lib/detector";
+import { detectWithHive, combineScores } from "@/lib/detector";
 
 export async function POST(request: NextRequest) {
     try {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
         // Run detection based on file type
         const isImage = type.startsWith("image/");
         let hiveScore = 0;
-        let sdxlScore: number | undefined = undefined;
+        const sdxlScore: number | undefined = undefined;
 
         if (isImage) {
             // Forward image requests to our new Python FastAPI backend
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
                     try {
                         const errorJson = await response.json();
                         if (errorJson.detail) errorMsg = errorJson.detail;
-                    } catch (e) {
+                    } catch {
                          // Fallback to text if JSON parsing fails
                          const text = await response.text();
                          if (text) errorMsg += ` - ${text.substring(0, 100)}`;

@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import UploadBox from "@/components/UploadBox";
 import ResultBox from "@/components/ResultBox";
 import Link from "next/link";
 
 import { DetectionResponse } from "@/components/ResultBox";
 
+const MAX_TEXT_LENGTH = 5000;
+const ACCEPTED_TEXT_FILE_TYPES = ".txt,.md,.text,text/plain,text/markdown";
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"file" | "text">("file");
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
+  const [textFileName, setTextFileName] = useState<string | null>(null);
   const [result, setResult] = useState<DetectionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const textFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleTabChange = (tab: "file" | "text") => {
     setActiveTab(tab);
@@ -22,6 +27,36 @@ export default function Home() {
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
     setResult(null);
+  };
+
+  const handleTextFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    try {
+      const content = await selectedFile.text();
+      if (!content.trim()) {
+        setResult({ success: false, error: "Selected text file is empty." });
+        return;
+      }
+      if (content.length > MAX_TEXT_LENGTH) {
+        setResult({
+          success: false,
+          error: `Text file is too long. Maximum ${MAX_TEXT_LENGTH} characters.`,
+        });
+        return;
+      }
+
+      setText(content);
+      setTextFileName(selectedFile.name);
+      setResult(null);
+    } catch {
+      setResult({ success: false, error: "Failed to read the selected text file." });
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const handleDetect = async () => {
@@ -37,7 +72,6 @@ export default function Home() {
       if (activeTab === "file") {
         const formData = new FormData();
         formData.append("file", file!);
-        // Forward to Next.js API route that proxies to Python backend
         response = await fetch("/api/proxy/image/detect", {
           method: "POST",
           body: formData,
@@ -49,52 +83,31 @@ export default function Home() {
           body: JSON.stringify({ text: text.trim() }),
         });
       }
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.status}`);
-      }
 
       const data = await response.json();
-      
-      // Since /api/detect/text might still return the old `DetectionResult` format,
-      // we need to gracefully handle mapping it to the new `DetectionResponse` format
-      // if it hasn't been updated yet.
-      if (activeTab === "text" && data.success && data.detectors) {
-          setResult({
-              success: true,
-              data: {
-                  success: true,
-                  filename: "Text Input",
-                  is_ai_generated: data.ai_generated,
-                  confidence: data.confidence,
-                  average_ai_probability: data.detectors.roberta,
-                  average_real_probability: data.detectors.roberta ? 1 - data.detectors.roberta : undefined,
-                  per_model: [{
-                      success: true,
-                      model_used: "roberta",
-                      ai_probability: data.detectors.roberta
-                  }]
-              }
-          });
-      } else {
-          setResult(data);
+      if (!response.ok) {
+        throw new Error(data?.error || data?.message || `Failed to fetch: ${response.status}`);
       }
-      
-    } catch (e: any) {
-      setResult({ success: false, message: e.message || "Failed to connect to server", error: e.message });
+
+      setResult(data);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to connect to server";
+      setResult({ success: false, message, error: message });
     } finally {
       setIsLoading(false);
     }
   };
 
+  const canDetect =
+    (activeTab === "file" && !!file) ||
+    (activeTab === "text" && text.trim().length > 0);
+
   return (
     <div className="min-h-screen bg-[var(--color-dark-bg)] relative overflow-hidden">
-      {/* Background glow effects */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[400px] h-[300px] bg-violet-600/5 rounded-full blur-[100px] pointer-events-none" />
 
       <main className="relative z-10 max-w-xl mx-auto px-4 py-20">
-        {/* Header */}
         <div className="text-center mb-12">
           <Link href={"https://www.futurestoreai.com/"}>
             <img
@@ -109,11 +122,10 @@ export default function Home() {
           <p className="text-slate-400 mt-3 text-sm leading-relaxed max-w-md mx-auto">
             Upload a file to check if it was generated by AI.
             <br />
-            Supports images, videos, and audio.
+            Supports images, videos, audio, and text.
           </p>
         </div>
 
-        {/* Tabs */}
         <div className="flex bg-[var(--color-dark-card)] p-1 rounded-xl mb-6 border border-[var(--color-dark-border)]">
           <button
             onClick={() => handleTabChange("file")}
@@ -135,32 +147,63 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Input Area */}
         <div className="space-y-4">
           {activeTab === "file" ? (
             <UploadBox onFileSelect={handleFileSelect} isLoading={isLoading} />
           ) : (
-            <div className="w-full">
+            <div className="w-full space-y-3">
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">Import a text file</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Upload a plain text file or type directly below.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => textFileInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="px-3 py-2 bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Choose File
+                </button>
+                <input
+                  ref={textFileInputRef}
+                  type="file"
+                  accept={ACCEPTED_TEXT_FILE_TYPES}
+                  className="hidden"
+                  onChange={handleTextFileChange}
+                  disabled={isLoading}
+                />
+              </div>
+
+              {textFileName && (
+                <div className="text-xs text-slate-400 px-1">
+                  Loaded file: <span className="text-slate-200 font-medium">{textFileName}</span>
+                </div>
+              )}
+
               <textarea
                 value={text}
                 onChange={(e) => {
                   setText(e.target.value);
+                  setTextFileName(null);
                   setResult(null);
                 }}
                 disabled={isLoading}
                 placeholder="Paste or type text to check if it was generated by AI..."
                 className="w-full h-64 p-5 rounded-2xl bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 resize-none transition-all duration-200"
-                maxLength={5000}
+                maxLength={MAX_TEXT_LENGTH}
               />
               <div className="flex justify-end mt-2">
-                <span className={`text-xs ${text.length >= 5000 ? "text-red-400" : "text-slate-500"}`}>
-                  {text.length}/5000
+                <span className={`text-xs ${text.length >= MAX_TEXT_LENGTH ? "text-red-400" : "text-slate-500"}`}>
+                  {text.length}/{MAX_TEXT_LENGTH}
                 </span>
               </div>
             </div>
           )}
 
-          {((activeTab === "file" && file) || (activeTab === "text" && text.trim().length > 0)) && (
+          {canDetect && (
             <button
               onClick={handleDetect}
               disabled={isLoading}
@@ -171,12 +214,10 @@ export default function Home() {
           )}
         </div>
 
-        {/* Result */}
         <div className="mt-6">
           <ResultBox result={result} isLoading={isLoading} />
         </div>
 
-        {/* Footer */}
         <div className="mt-16 text-center">
           <p className="text-slate-600 text-xs">
             Part of the{" "}
