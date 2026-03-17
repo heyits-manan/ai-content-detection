@@ -10,6 +10,42 @@ import { DetectionResponse } from "@/components/ResultBox";
 const MAX_TEXT_LENGTH = 5000;
 const ACCEPTED_TEXT_FILE_TYPES = ".txt,.md,.text,text/plain,text/markdown";
 
+function normalizeMediaResponse(file: File, payload: unknown): DetectionResponse {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "success" in payload
+  ) {
+    return payload as DetectionResponse;
+  }
+
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "ai_probability" in payload &&
+    typeof (payload as { ai_probability?: unknown }).ai_probability === "number"
+  ) {
+    const aiProbability = (payload as { ai_probability: number }).ai_probability;
+    const realProbability = Math.max(0, Math.min(1, 1 - aiProbability));
+
+    return {
+      success: true,
+      data: {
+        success: true,
+        ai_probability: aiProbability,
+        average_ai_probability: aiProbability,
+        real_probability: realProbability,
+        average_real_probability: realProbability,
+        is_ai_generated: aiProbability > 0.5,
+        confidence: Math.max(aiProbability, realProbability),
+        filename: file.name,
+      },
+    };
+  }
+
+  throw new Error("Unexpected response from server");
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"file" | "text">("file");
   const [file, setFile] = useState<File | null>(null);
@@ -25,6 +61,11 @@ export default function Home() {
   };
 
   const handleFileSelect = (selectedFile: File) => {
+    console.log("[frontend] file selected", {
+      name: selectedFile.name,
+      type: selectedFile.type,
+      size: selectedFile.size,
+    });
     setFile(selectedFile);
     setResult(null);
   };
@@ -67,30 +108,114 @@ export default function Home() {
     setResult(null);
 
     try {
-      let response;
+      let response: Response;
+      let rawBody = "";
 
       if (activeTab === "file") {
+        const selectedFile = file!;
         const formData = new FormData();
-        formData.append("file", file!);
-        response = await fetch("/api/proxy/image/detect", {
+        formData.append("file", selectedFile);
+
+        const isImage = selectedFile.type.startsWith("image/");
+        const isVideo = selectedFile.type.startsWith("video/");
+
+        if (!isImage && !isVideo) {
+          throw new Error(`Unsupported file type: ${selectedFile.type || selectedFile.name}`);
+        }
+
+        const endpoint = isVideo ? "/api/proxy/video/detect" : "/api/proxy/image/detect";
+        console.log("[frontend] sending media detect request", {
+          endpoint,
+          name: selectedFile.name,
+          type: selectedFile.type,
+          size: selectedFile.size,
+        });
+
+        response = await fetch(endpoint, {
           method: "POST",
           body: formData,
         });
+        rawBody = await response.text();
+
+        console.log("[frontend] media detect response", {
+          endpoint,
+          status: response.status,
+          ok: response.ok,
+          bodyPreview: rawBody.slice(0, 500),
+        });
+
+        let payload: unknown = null;
+        if (rawBody) {
+          try {
+            payload = JSON.parse(rawBody);
+          } catch {
+            payload = null;
+          }
+        }
+
+        if (!response.ok) {
+          const errorMessage =
+            (payload && typeof payload === "object" && payload !== null && "detail" in payload && typeof (payload as { detail?: unknown }).detail === "string"
+              ? (payload as { detail: string }).detail
+              : null) ||
+            (payload && typeof payload === "object" && payload !== null && "error" in payload && typeof (payload as { error?: unknown }).error === "string"
+              ? (payload as { error: string }).error
+              : null) ||
+            (payload && typeof payload === "object" && payload !== null && "message" in payload && typeof (payload as { message?: unknown }).message === "string"
+              ? (payload as { message: string }).message
+              : null) ||
+            rawBody ||
+            `Failed to fetch: ${response.status}`;
+
+          throw new Error(errorMessage);
+        }
+
+        setResult(normalizeMediaResponse(selectedFile, payload));
       } else {
+        console.log("[frontend] sending text detect request", {
+          length: text.trim().length,
+        });
+
         response = await fetch("/api/detect/text", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: text.trim() }),
         });
-      }
+        rawBody = await response.text();
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || data?.message || `Failed to fetch: ${response.status}`);
-      }
+        console.log("[frontend] text detect response", {
+          status: response.status,
+          ok: response.ok,
+          bodyPreview: rawBody.slice(0, 500),
+        });
 
-      setResult(data);
+        let payload: unknown = null;
+        if (rawBody) {
+          try {
+            payload = JSON.parse(rawBody);
+          } catch {
+            payload = null;
+          }
+        }
+
+        if (!response.ok) {
+          const errorMessage =
+            (payload && typeof payload === "object" && payload !== null && "error" in payload && typeof (payload as { error?: unknown }).error === "string"
+              ? (payload as { error: string }).error
+              : null) ||
+            (payload && typeof payload === "object" && payload !== null && "message" in payload && typeof (payload as { message?: unknown }).message === "string"
+              ? (payload as { message: string }).message
+              : null) ||
+            rawBody ||
+            `Failed to fetch: ${response.status}`;
+
+          throw new Error(errorMessage);
+        }
+
+        setResult((payload as DetectionResponse) ?? null);
+      }
     } catch (error: unknown) {
+      console.error("[frontend] detection failed", error);
       const message = error instanceof Error ? error.message : "Failed to connect to server";
       setResult({ success: false, message, error: message });
     } finally {
