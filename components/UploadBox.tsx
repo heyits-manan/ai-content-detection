@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 interface UploadBoxProps {
     onFileSelect: (file: File) => void;
@@ -22,7 +22,7 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
             if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE_BYTES) {
                 setSelectedFile(null);
                 setPreview(null);
-                setError("Image size must be 4MB or smaller.");
+                setError("Image size must be 10MB or smaller.");
                 return;
             }
 
@@ -90,7 +90,7 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                                 <span className="text-purple-400">browse</span>
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
-                                Supports images, videos & audio. Images must be 4MB or smaller.
+                                Supports images, videos & audio. Images must be 10MB or smaller.
                             </p>
                             {error && (
                                 <p className="text-xs font-semibold text-red-400 mt-2 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">
