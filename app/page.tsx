@@ -6,6 +6,7 @@ import ResultBox from "@/components/ResultBox";
 import Link from "next/link";
 
 import { DetectionResponse } from "@/components/ResultBox";
+import { getBackendBaseUrl } from "@/lib/apiBase";
 
 const MAX_TEXT_LENGTH = 5000;
 const ACCEPTED_TEXT_FILE_TYPES = ".txt,.md,.text,text/plain,text/markdown";
@@ -123,9 +124,12 @@ export default function Home() {
           throw new Error(`Unsupported file type: ${selectedFile.type || selectedFile.name}`);
         }
 
-        const endpoint = isVideo ? "/api/proxy/video/detect" : "/api/proxy/image/detect";
+        const endpoint = isVideo
+          ? `${getBackendBaseUrl()}/video/detect`
+          : `${getBackendBaseUrl()}/api/v1/image/detect`;
         console.log("[frontend] sending media detect request", {
           endpoint,
+          mode: "direct-backend",
           name: selectedFile.name,
           type: selectedFile.type,
           size: selectedFile.size,
@@ -176,7 +180,7 @@ export default function Home() {
           length: text.trim().length,
         });
 
-        response = await fetch("/api/detect/text", {
+        response = await fetch(`${getBackendBaseUrl()}/api/v1/text/detect`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: text.trim() }),
