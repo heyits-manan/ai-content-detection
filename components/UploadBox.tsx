@@ -129,6 +129,11 @@ export default function UploadBox({
                         ? "border-purple-500 bg-purple-500/10"
                         : "border-[var(--color-dark-border)] bg-[var(--color-dark-card)] hover:border-purple-500/50 hover:bg-purple-500/5 focus-within:border-purple-500/60"
                         }`}
+                    onClick={() => {
+                        if (!isLoading) {
+                            fileInputRef.current?.click();
+                        }
+                    }}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
