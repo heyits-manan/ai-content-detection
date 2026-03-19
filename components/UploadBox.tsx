@@ -102,18 +102,47 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                     <input
                         type="file"
                         className="hidden"
-                        accept="image/jpeg,image/png,image/webp,video/mp4,audio/mpeg,audio/wav"
+                        accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/x-wav,audio/flac,audio/x-flac,audio/mp4,audio/x-m4a,audio/ogg"
                         onChange={handleChange}
                         disabled={isLoading}
                     />
                 </label>
             ) : (
                 <div className="relative w-full rounded-2xl overflow-hidden border border-[var(--color-dark-border)] bg-[var(--color-dark-card)]">
-                    <img
-                        src={preview!}
-                        alt="Preview"
-                        className="w-full h-64 object-contain bg-black/30"
-                    />
+                    {selectedFile?.type.startsWith("image/") ? (
+                        <img
+                            src={preview!}
+                            alt="Preview"
+                            className="w-full h-64 object-contain bg-black/30"
+                        />
+                    ) : selectedFile?.type.startsWith("video/") ? (
+                        <video
+                            src={preview!}
+                            className="w-full h-64 object-contain bg-black/30"
+                            controls
+                            preload="metadata"
+                        />
+                    ) : (
+                        <div className="w-full h-64 bg-black/30 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                            <div className="w-14 h-14 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                                <svg
+                                    className="w-7 h-7 text-purple-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={1.5}
+                                        d="M9 19V6l12-2v13M9 19a2 2 0 11-4 0 2 2 0 014 0zm12-2a2 2 0 11-4 0 2 2 0 014 0zM9 10l12-2"
+                                    />
+                                </svg>
+                            </div>
+                            <p className="text-sm text-slate-300">Audio file selected</p>
+                            <audio src={preview!} controls className="w-full max-w-sm" preload="metadata" />
+                        </div>
+                    )}
                     <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-dark-border)]">
                         <div className="flex items-center gap-2 min-w-0">
                             <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">

@@ -119,17 +119,21 @@ export default function Home() {
 
         const isImage = selectedFile.type.startsWith("image/");
         const isVideo = selectedFile.type.startsWith("video/");
+        const isAudio = selectedFile.type.startsWith("audio/");
 
-        if (!isImage && !isVideo) {
+        if (!isImage && !isVideo && !isAudio) {
           throw new Error(`Unsupported file type: ${selectedFile.type || selectedFile.name}`);
         }
 
         const endpoint = isVideo
           ? `${getBackendBaseUrl()}/video/detect`
-          : `${getBackendBaseUrl()}/api/v1/image/detect`;
+          : isAudio
+            ? `${getBackendBaseUrl()}/api/v1/audio/detect`
+            : `${getBackendBaseUrl()}/api/v1/image/detect`;
         console.log("[frontend] sending media detect request", {
           endpoint,
           mode: "direct-backend",
+          mediaKind: isVideo ? "video" : isAudio ? "audio" : "image",
           name: selectedFile.name,
           type: selectedFile.type,
           size: selectedFile.size,
