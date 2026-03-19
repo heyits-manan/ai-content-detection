@@ -10,6 +10,44 @@ import { getBackendBaseUrl } from "@/lib/apiBase";
 
 const MAX_TEXT_LENGTH = 5000;
 const ACCEPTED_TEXT_FILE_TYPES = ".txt,.md,.text,text/plain,text/markdown";
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+const VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".ogg", ".ogv"];
+const AUDIO_EXTENSIONS = [".mp3", ".wav", ".flac", ".m4a", ".ogg"];
+
+function hasExtension(fileName: string, extensions: string[]) {
+  const lowerName = fileName.toLowerCase();
+  return extensions.some((extension) => lowerName.endsWith(extension));
+}
+
+function getMediaKind(file: File): "image" | "video" | "audio" | "unknown" {
+  if (file.type.startsWith("image/") || hasExtension(file.name, IMAGE_EXTENSIONS)) {
+    return "image";
+  }
+
+  if (file.type.startsWith("video/") || hasExtension(file.name, VIDEO_EXTENSIONS)) {
+    return "video";
+  }
+
+  if (file.type.startsWith("audio/") || hasExtension(file.name, AUDIO_EXTENSIONS)) {
+    return "audio";
+  }
+
+  return "unknown";
+}
+
+function getLoadingLabel(tab: "file" | "text", stage: "idle" | "uploading" | "processing" | "finalizing") {
+  if (tab === "text") {
+    if (stage === "uploading") return "Preparing text payload...";
+    if (stage === "processing") return "Analyzing text content...";
+    if (stage === "finalizing") return "Finalizing text result...";
+    return "Analyzing text content...";
+  }
+
+  if (stage === "uploading") return "Uploading media file...";
+  if (stage === "processing") return "Processing media content...";
+  if (stage === "finalizing") return "Finalizing media result...";
+  return "Analyzing media file...";
+}
 
 function normalizeMediaResponse(file: File, payload: unknown): DetectionResponse {
   if (
@@ -52,13 +90,16 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
   const [textFileName, setTextFileName] = useState<string | null>(null);
-  const [result, setResult] = useState<DetectionResponse | null>(null);
+  const [fileResult, setFileResult] = useState<DetectionResponse | null>(null);
+  const [textResult, setTextResult] = useState<DetectionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingTab, setLoadingTab] = useState<"file" | "text" | null>(null);
+  const [loadingStage, setLoadingStage] = useState<"idle" | "uploading" | "processing" | "finalizing">("idle");
   const textFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleTabChange = (tab: "file" | "text") => {
+    if (isLoading) return;
     setActiveTab(tab);
-    setResult(null);
   };
 
   const handleFileSelect = (selectedFile: File) => {
@@ -68,7 +109,12 @@ export default function Home() {
       size: selectedFile.size,
     });
     setFile(selectedFile);
-    setResult(null);
+    setFileResult(null);
+  };
+
+  const handleFileClear = () => {
+    setFile(null);
+    setFileResult(null);
   };
 
   const handleTextFileChange = async (
@@ -80,11 +126,11 @@ export default function Home() {
     try {
       const content = await selectedFile.text();
       if (!content.trim()) {
-        setResult({ success: false, error: "Selected text file is empty." });
+        setTextResult({ success: false, error: "Selected text file is empty." });
         return;
       }
       if (content.length > MAX_TEXT_LENGTH) {
-        setResult({
+        setTextResult({
           success: false,
           error: `Text file is too long. Maximum ${MAX_TEXT_LENGTH} characters.`,
         });
@@ -93,9 +139,9 @@ export default function Home() {
 
       setText(content);
       setTextFileName(selectedFile.name);
-      setResult(null);
+      setTextResult(null);
     } catch {
-      setResult({ success: false, error: "Failed to read the selected text file." });
+      setTextResult({ success: false, error: "Failed to read the selected text file." });
     } finally {
       event.target.value = "";
     }
@@ -106,7 +152,13 @@ export default function Home() {
     if (activeTab === "text" && !text.trim()) return;
 
     setIsLoading(true);
-    setResult(null);
+    setLoadingTab(activeTab);
+    setLoadingStage("uploading");
+    if (activeTab === "file") {
+      setFileResult(null);
+    } else {
+      setTextResult(null);
+    }
 
     try {
       let response: Response;
@@ -116,10 +168,11 @@ export default function Home() {
         const selectedFile = file!;
         const formData = new FormData();
         formData.append("file", selectedFile);
+        const mediaKind = getMediaKind(selectedFile);
 
-        const isImage = selectedFile.type.startsWith("image/");
-        const isVideo = selectedFile.type.startsWith("video/");
-        const isAudio = selectedFile.type.startsWith("audio/");
+        const isImage = mediaKind === "image";
+        const isVideo = mediaKind === "video";
+        const isAudio = mediaKind === "audio";
 
         if (!isImage && !isVideo && !isAudio) {
           throw new Error(`Unsupported file type: ${selectedFile.type || selectedFile.name}`);
@@ -139,6 +192,7 @@ export default function Home() {
           size: selectedFile.size,
         });
 
+        setLoadingStage("processing");
         response = await fetch(endpoint, {
           method: "POST",
           body: formData,
@@ -178,12 +232,14 @@ export default function Home() {
           throw new Error(errorMessage);
         }
 
-        setResult(normalizeMediaResponse(selectedFile, payload));
+        setLoadingStage("finalizing");
+        setFileResult(normalizeMediaResponse(selectedFile, payload));
       } else {
         console.log("[frontend] sending text detect request", {
           length: text.trim().length,
         });
 
+        setLoadingStage("processing");
         response = await fetch(`${getBackendBaseUrl()}/api/v1/text/detect`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -220,16 +276,28 @@ export default function Home() {
           throw new Error(errorMessage);
         }
 
-        setResult((payload as DetectionResponse) ?? null);
+        setLoadingStage("finalizing");
+        setTextResult((payload as DetectionResponse) ?? null);
       }
     } catch (error: unknown) {
       console.error("[frontend] detection failed", error);
       const message = error instanceof Error ? error.message : "Failed to connect to server";
-      setResult({ success: false, message, error: message });
+      const errorResult = { success: false, message, error: message };
+      if (activeTab === "file") {
+        setFileResult(errorResult);
+      } else {
+        setTextResult(errorResult);
+      }
     } finally {
       setIsLoading(false);
+      setLoadingTab(null);
+      setLoadingStage("idle");
     }
   };
+
+  const activeResult = activeTab === "file" ? fileResult : textResult;
+  const activeContextLabel = activeTab === "file" ? "Result for media upload" : "Result for text content";
+  const activeLoadingLabel = getLoadingLabel(loadingTab ?? activeTab, loadingStage);
 
   const canDetect =
     (activeTab === "file" && !!file) ||
@@ -262,7 +330,8 @@ export default function Home() {
         <div className="flex bg-[var(--color-dark-card)] p-1 rounded-xl mb-6 border border-[var(--color-dark-border)]">
           <button
             onClick={() => handleTabChange("file")}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "file"
+            disabled={isLoading}
+            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${activeTab === "file"
               ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25"
               : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
@@ -271,7 +340,8 @@ export default function Home() {
           </button>
           <button
             onClick={() => handleTabChange("text")}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "text"
+            disabled={isLoading}
+            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${activeTab === "text"
               ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25"
               : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
@@ -282,7 +352,12 @@ export default function Home() {
 
         <div className="space-y-4">
           {activeTab === "file" ? (
-            <UploadBox onFileSelect={handleFileSelect} isLoading={isLoading} />
+            <UploadBox
+              onFileSelect={handleFileSelect}
+              onClearFile={handleFileClear}
+              selectedFile={file}
+              isLoading={isLoading}
+            />
           ) : (
             <div className="w-full space-y-3">
               <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] px-4 py-3">
@@ -296,7 +371,8 @@ export default function Home() {
                   type="button"
                   onClick={() => textFileInputRef.current?.click()}
                   disabled={isLoading}
-                  className="px-3 py-2 bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-3 py-2 bg-[var(--color-dark-bg)] border border-[var(--color-dark-border)] rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-colors disabled:opacity-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400/60"
+                  aria-label="Choose a text file to import"
                 >
                   Choose File
                 </button>
@@ -321,12 +397,13 @@ export default function Home() {
                 onChange={(e) => {
                   setText(e.target.value);
                   setTextFileName(null);
-                  setResult(null);
+                  setTextResult(null);
                 }}
                 disabled={isLoading}
                 placeholder="Paste or type text to check if it was generated by AI..."
-                className="w-full h-64 p-5 rounded-2xl bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 resize-none transition-all duration-200"
+                className="w-full h-64 p-5 rounded-2xl bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/50 resize-none transition-all duration-200 disabled:opacity-70"
                 maxLength={MAX_TEXT_LENGTH}
+                aria-label="Text content to analyze"
               />
               <div className="flex justify-end mt-2">
                 <span className={`text-xs ${text.length >= MAX_TEXT_LENGTH ? "text-red-400" : "text-slate-500"}`}>
@@ -340,15 +417,22 @@ export default function Home() {
             <button
               onClick={handleDetect}
               disabled={isLoading}
-              className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98] shadow-lg shadow-purple-600/25"
+              className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98] shadow-lg shadow-purple-600/25 focus:outline-none focus:ring-2 focus:ring-purple-400/70"
             >
-              {isLoading ? "Analyzing..." : "Detect Content"}
+              {isLoading ? activeLoadingLabel : "Detect Content"}
             </button>
           )}
         </div>
 
         <div className="mt-6">
-          <ResultBox result={result} isLoading={isLoading} />
+          <ResultBox
+            key={`${activeTab}-${activeResult?.success ? activeResult.data?.filename ?? activeResult.data?.text_length ?? "success" : activeResult?.error ?? activeResult?.message ?? "empty"}`}
+            result={activeResult}
+            isLoading={isLoading}
+            loadingLabel={activeLoadingLabel}
+            contextLabel={activeResult ? activeContextLabel : undefined}
+            onRetry={activeResult && !activeResult.success ? handleDetect : undefined}
+          />
         </div>
 
         <div className="mt-16 text-center">

@@ -1,33 +1,86 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+const VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".ogg", ".ogv"];
+const AUDIO_EXTENSIONS = [".mp3", ".wav", ".flac", ".m4a", ".ogg"];
+
+function hasExtension(fileName: string, extensions: string[]) {
+    const lowerName = fileName.toLowerCase();
+    return extensions.some((extension) => lowerName.endsWith(extension));
+}
+
+function getMediaKind(file: File): "image" | "video" | "audio" | "unknown" {
+    if (file.type.startsWith("image/") || hasExtension(file.name, IMAGE_EXTENSIONS)) {
+        return "image";
+    }
+
+    if (file.type.startsWith("video/") || hasExtension(file.name, VIDEO_EXTENSIONS)) {
+        return "video";
+    }
+
+    if (file.type.startsWith("audio/") || hasExtension(file.name, AUDIO_EXTENSIONS)) {
+        return "audio";
+    }
+
+    return "unknown";
+}
+
+function formatBytes(size: number) {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
 
 interface UploadBoxProps {
     onFileSelect: (file: File) => void;
+    onClearFile: () => void;
+    selectedFile: File | null;
     isLoading: boolean;
 }
 
-export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
+export default function UploadBox({
+    onFileSelect,
+    onClearFile,
+    selectedFile,
+    isLoading,
+}: UploadBoxProps) {
     const [dragActive, setDragActive] = useState(false);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const mediaKind = selectedFile ? getMediaKind(selectedFile) : "unknown";
+    const preview = useMemo(
+        () => (selectedFile ? URL.createObjectURL(selectedFile) : null),
+        [selectedFile]
+    );
+
+    useEffect(() => {
+        return () => {
+            if (preview) {
+                URL.revokeObjectURL(preview);
+            }
+        };
+    }, [preview]);
 
     const handleFile = useCallback(
         (file: File) => {
             setError(null);
 
-            if (file.type.startsWith("image/") && file.size > MAX_IMAGE_SIZE_BYTES) {
-                setSelectedFile(null);
-                setPreview(null);
+            const nextMediaKind = getMediaKind(file);
+
+            if (nextMediaKind === "unknown") {
+                setError("Unsupported file type. Upload an image, video, or audio file.");
+                return;
+            }
+
+            if (nextMediaKind === "image" && file.size > MAX_IMAGE_SIZE_BYTES) {
                 setError("Image size must be 10MB or smaller.");
                 return;
             }
 
-            setSelectedFile(file);
-            setPreview(URL.createObjectURL(file));
             onFileSelect(file);
         },
         [onFileSelect]
@@ -43,24 +96,47 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
         [handleFile]
     );
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) handleFile(file);
+        e.target.value = "";
     };
 
     const clearFile = () => {
-        setSelectedFile(null);
-        setPreview(null);
+        setError(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+        onClearFile();
     };
 
     return (
         <div className="w-full">
+            <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/x-wav,audio/flac,audio/x-flac,audio/mp4,audio/x-m4a,audio/ogg"
+                onChange={handleChange}
+                disabled={isLoading}
+            />
             {!selectedFile ? (
                 <label
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Upload an image, video, or audio file"
                     className={`flex flex-col items-center justify-center w-full h-64 border border-dashed rounded-2xl cursor-pointer transition-all duration-300 ${dragActive
                         ? "border-purple-500 bg-purple-500/10"
-                        : "border-[var(--color-dark-border)] bg-[var(--color-dark-card)] hover:border-purple-500/50 hover:bg-purple-500/5"
+                        : "border-[var(--color-dark-border)] bg-[var(--color-dark-card)] hover:border-purple-500/50 hover:bg-purple-500/5 focus-within:border-purple-500/60"
                         }`}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (!isLoading) {
+                                fileInputRef.current?.click();
+                            }
+                        }
+                    }}
                     onDragOver={(e) => {
                         e.preventDefault();
                         setDragActive(true);
@@ -99,29 +175,25 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                             )}
                         </div>
                     </div>
-                    <input
-                        type="file"
-                        className="hidden"
-                        accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/x-wav,audio/flac,audio/x-flac,audio/mp4,audio/x-m4a,audio/ogg"
-                        onChange={handleChange}
-                        disabled={isLoading}
-                    />
                 </label>
             ) : (
                 <div className="relative w-full rounded-2xl overflow-hidden border border-[var(--color-dark-border)] bg-[var(--color-dark-card)]">
-                    {selectedFile?.type.startsWith("image/") ? (
+                    {mediaKind === "image" ? (
                         <img
                             src={preview!}
                             alt="Preview"
                             className="w-full h-64 object-contain bg-black/30"
                         />
-                    ) : selectedFile?.type.startsWith("video/") ? (
+                    ) : mediaKind === "video" ? (
                         <video
-                            src={preview!}
+                            key={preview}
                             className="w-full h-64 object-contain bg-black/30"
                             controls
                             preload="metadata"
-                        />
+                        >
+                            <source src={preview!} type={selectedFile.type || undefined} />
+                            Your browser cannot preview this video file.
+                        </video>
                     ) : (
                         <div className="w-full h-64 bg-black/30 flex flex-col items-center justify-center gap-4 px-6 text-center">
                             <div className="w-14 h-14 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
@@ -160,18 +232,39 @@ export default function UploadBox({ onFileSelect, isLoading }: UploadBoxProps) {
                                     />
                                 </svg>
                             </div>
-                            <p className="text-sm text-slate-400 truncate">
-                                {selectedFile.name}
+                            <div className="min-w-0">
+                                <p className="text-sm text-slate-300 truncate">{selectedFile.name}</p>
+                                <p className="text-xs text-slate-500">
+                                    {mediaKind.toUpperCase()} · {formatBytes(selectedFile.size)}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isLoading}
+                                className="text-xs text-slate-400 hover:text-white transition-colors disabled:opacity-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400/60 rounded-md px-1.5 py-1"
+                            >
+                                Replace
+                            </button>
+                            <button
+                                type="button"
+                                onClick={clearFile}
+                                disabled={isLoading}
+                                className="text-xs text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400/60 rounded-md px-1.5 py-1"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                    {error && (
+                        <div className="px-4 pb-4">
+                            <p className="text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-2 rounded-md">
+                                {error}
                             </p>
                         </div>
-                        <button
-                            onClick={clearFile}
-                            disabled={isLoading}
-                            className="text-xs text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                            Remove
-                        </button>
-                    </div>
+                    )}
                 </div>
             )}
         </div>

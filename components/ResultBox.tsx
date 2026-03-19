@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export interface PerModelResult {
   success: boolean;
   detector?: string;
@@ -41,6 +43,9 @@ export interface DetectionResponse {
 interface ResultBoxProps {
   result: DetectionResponse | null;
   isLoading: boolean;
+  loadingLabel?: string;
+  contextLabel?: string;
+  onRetry?: () => void;
 }
 
 function ScoreBar({
@@ -80,19 +85,32 @@ function ScoreBar({
   );
 }
 
-import { useState } from "react";
-
-export default function ResultBox({ result, isLoading }: ResultBoxProps) {
+export default function ResultBox({
+  result,
+  isLoading,
+  loadingLabel = "Analyzing content...",
+  contextLabel,
+  onRetry,
+}: ResultBoxProps) {
   const [showDetailedModels, setShowDetailedModels] = useState(false);
 
   if (isLoading) {
     return (
-      <div className="w-full rounded-2xl border border-[var(--color-dark-border)] bg-[var(--color-dark-card)] p-8">
-        <div className="flex flex-col items-center gap-4">
+      <div
+        className="w-full rounded-2xl border border-[var(--color-dark-border)] bg-[var(--color-dark-card)] p-8"
+        aria-live="polite"
+      >
+        <div className="flex flex-col items-center gap-4 text-center">
           <div className="w-12 h-12 rounded-full border-4 border-purple-900 border-t-purple-400 animate-spin" />
-          <p className="text-sm text-slate-400 font-medium">
-            Analyzing content...
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-slate-200 font-semibold">{loadingLabel}</p>
+            <div className="w-64 max-w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-purple-500 via-fuchsia-400 to-purple-500 animate-pulse" />
+            </div>
+            <p className="text-xs text-slate-500">
+              Inputs are locked until this request finishes.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -103,8 +121,8 @@ export default function ResultBox({ result, isLoading }: ResultBoxProps) {
   if (!result.success) {
     return (
       <div className="w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
             <svg
               className="w-5 h-5 text-red-400"
               fill="none"
@@ -119,7 +137,23 @@ export default function ResultBox({ result, isLoading }: ResultBoxProps) {
               />
             </svg>
           </div>
-          <p className="text-sm text-red-400 font-medium">{result.message || result.error}</p>
+          <div className="space-y-3">
+            {contextLabel && (
+              <p className="text-[11px] text-red-300/80 uppercase tracking-wider font-semibold">
+                {contextLabel}
+              </p>
+            )}
+            <p className="text-sm text-red-400 font-medium">{result.message || result.error}</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="px-3 py-2 rounded-lg border border-red-500/20 bg-red-500/10 text-xs font-semibold text-red-200 hover:bg-red-500/15 focus:outline-none focus:ring-2 focus:ring-red-400/60 cursor-pointer"
+              >
+                Retry
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -137,6 +171,11 @@ export default function ResultBox({ result, isLoading }: ResultBoxProps) {
 
   return (
     <div className="w-full rounded-2xl border border-[var(--color-dark-border)] bg-[var(--color-dark-card)] p-6 space-y-5">
+      {contextLabel && (
+        <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
+          {contextLabel}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
